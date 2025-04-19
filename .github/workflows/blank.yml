@@ -35,10 +35,6 @@ jobs:
           fi
           echo "Using files from source directory"
 
-      # 创建dist目录
-      - name: Create dist directory
-        run: mkdir -p dist
-
       # 设置Node.js环境
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -48,6 +44,16 @@ jobs:
       # 安装依赖
       - name: Install dependencies
         run: npm i
+      
+      # 确保dist目录存在  
+      - name: Check and create dist directory
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "Creating dist directory"
+            mkdir -p dist
+          else
+            echo "Dist directory already exists"
+          fi
         
       # 构建项目
       - name: Build project
