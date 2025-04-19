@@ -1,36 +1,91 @@
-# This is a basic workflow to help you get started with Actions
+# 这是一个帮助您开始使用Actions的基本工作流
 
-name: CI
+name: Webfonts
 
-# Controls when the workflow will run
+# 控制工作流何时运行
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
+  # 在push或pull request事件触发工作流，但仅限于"main"分支
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
-  # Allows you to run this workflow manually from the Actions tab
+  # 允许您从Actions选项卡手动运行此工作流
   workflow_dispatch:
+    inputs:
+      zipFile:
+        description: 'ZIP file to upload to source directory'
+        required: true
+        type: string
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# 工作流运行由一个或多个可以按顺序或并行运行的作业组成
 jobs:
-  # This workflow contains a single job called "build"
+  # 此工作流包含一个名为"build"的作业
   build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    # 作业将在其上运行的运行器类型
+    runs-on: macos-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    # 步骤表示作为作业一部分将执行的任务序列
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      # 检出您的仓库到$GITHUB_WORKSPACE下，以便您的作业可以访问它
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      # 确保source目录存在
+      - name: Create source directory if not exists
+        run: mkdir -p source
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      # 下载ZIP文件到source目录
+      - name: Download ZIP file
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.zipFile }}" != "" ]]; then
+            curl -L "${{ github.event.inputs.zipFile }}" -o source/upload.zip
+            echo "Downloaded zip file to source directory"
+          else
+            echo "No zip file provided or not triggered manually"
+          fi
+
+      # 解压ZIP文件
+      - name: Extract ZIP file if exists
+        run: |
+          if [ -f source/upload.zip ]; then
+            unzip source/upload.zip -d source/
+            rm source/upload.zip
+            echo "Extracted zip file and removed the original"
+          else
+            echo "No zip file found to extract"
+          fi
+
+      # 创建dist目录
+      - name: Create dist directory
+        run: mkdir -p dist
+
+      # 设置Node.js环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      # 安装依赖
+      - name: Install dependencies
+        run: npm i
+        
+      # 构建项目
+      - name: Build project
+        run: npm run build
+
+      # 打包dist目录
+      - name: Create dist archive
+        run: |
+          cd dist
+          zip -r ../webfonts-dist.zip .
+          cd ..
+          echo "Created dist archive"
+
+      # 上传构建产物
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: webfonts-dist
+          path: webfonts-dist.zip
+          retention-days: 7
